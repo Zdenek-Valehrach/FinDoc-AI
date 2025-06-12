@@ -78,7 +78,7 @@ python -m data_processing.batch_processor --pdf_dir "/cesta/k/pdf/fakturám" --o
 - **Extrahuje data z PDF faktur** – pomocí PyPDF s rozpoznáním strukturovaných informací z textové vrstvy dokumentů
 - **Detekuje anomálie pomocí XGBoost modelu** – identifikace nestandardních vzorů jako vysoké částky s krátkou splatností nebo neobvyklé služby.
 - **Poskytuje analytické přehledy s LLM interpretací** – cashflow analýza, kategorizace výdajů a příjmů s vysvětleními a doporučeními v přirozeném jazyce.
-- **Integruje RAG pipeline s NewsAPI** – vyhledávání a analýza technologických novinek z českých a zahraničních zdrojů s využitím ChromaDB pro vektorové ukládání.
+- **Integruje RAG pipeline s NewsAPI** – vyhledávání a analýza technologických novinek z českých a zahraničních zdrojů s využitím FAISS pro vektorové ukládání.
 - **Nabízí interaktivní Streamlit dashboard** – se čtyřmi moduly (úvod, zpracování PDF, analytika, tech novinky) a pokročilými vizualizacemi.
 
 ---
@@ -91,7 +91,7 @@ Aplikace obsahuje čtyři hlavní sekce:
 - **Úvod** - představení projektu a dokumentace
 - **Načtení a zpracování PDF** - upload a extrakce dat z faktur s následnou detekcí anomálií
 - **Analytika** - předdefinované analytické pohledy s interaktivními grafy a interpretací výsledků v přirozeném jazyce pomocí LLM
-- **Tech Novinky** - RAG pipeline pro analýzu technologických článků s využitím ChromaDB
+- **Tech Novinky** - RAG pipeline pro analýzu technologických článků s využitím FAISS
 
 ### 2. Generování a zpracování dat (utils/ a data_processing/)
 
@@ -126,7 +126,7 @@ Pro reálné nasazení by bylo nutné implementovat robustnější OCR řešení
 ### 5. RAG pipeline (rag/)
 
 - **NewsAPI client** (newsapi_client.py) - získávání a zpracování technologických článků z českých a zahraničních zdrojů
-- **ChromaDB vektorové úložiště** - ukládání a vyhledávání relevantních článků pro dotazy
+- **FAISS vektorové úložiště** - ukládání a vyhledávání relevantních článků pro dotazy
 - **Kontextově obohacené odpovědi** - generování odpovědí na základě nalezených relevantních článků
 
 ---
@@ -216,9 +216,9 @@ Projekt implementuje dva typy LLM integrace, které výrazně zlepšují uživat
   - Flexibilní filtrování podle relevance a času publikace (30 dní)
   - Dynamické refreshování dat při každém dotazu pro zajištění aktuálnosti
 
-- **Unifikované vektorové vyhledávání s ChromaDB:**
-  - Společné ukládání českých i anglických článků v jedné kolekci "tech_news_global"
-  - Pokročilá konfigurace HNSW indexu pro optimální výkon (M=16, cosine similarity)
+- **Unifikované vektorové vyhledávání s FAISS:**
+  - Společné ukládání českých i anglických článků v jednotném vektorovém úložišti
+  - Efektivní in-memory implementace pro rychlé vyhledávání
   - Sémantické vyhledávání relevantních článků napříč jazyky
   - Efektivní práce s většími objemy vícejazyčných textových dat
 
@@ -290,7 +290,7 @@ Tento přístup mi umožnil vytvořit komplexnější projekt, než bych byl sch
 Během vývoje tohoto projektu jsem řešil několik zajímavých technických výzev:
 
 - **Extrakce strukturovaných dat z PDF** – Pro spolehlivou extrakci jsem použil PyPDF s vlastní logikou pro identifikaci klíčových entit a kategorií, což umožňuje konzistentní zpracování faktur ve standardizovaném formátu.
-- **Multijazyčná RAG pipeline** – Vyřešil jsem výzvu vyhledávání ve dvou jazycích pomocí jednotného vektorového úložiště v ChromaDB, což umožňuje propojit informace z českých i mezinárodních zdrojů.
+- **Multijazyčná RAG pipeline** – Vyřešil jsem výzvu vyhledávání ve dvou jazycích pomocí jednotného vektorového úložiště v FAISS, což umožňuje propojit informace z českých i mezinárodních zdrojů.
 - **Modulární architektura** – Jednotlivé komponenty jsou navrženy jako nezávislé moduly s jasně definovanými rozhraními, což umožnilo paralelní vývoj a testování jednotlivých částí aplikace.
 - **Experimenty s hybridním RAG + SQL přístupem** – Experimentoval jsem s generováním SQL dotazů z přirozeného jazyka a následnou interpretací výsledků pomocí LLM. Přestože tento přístup fungoval dobře pro základní analytické dotazy (celkové náklady, porovnání příjmů a výdajů, atd), u složitějších dotazů jsem narážel na potřebu rozsáhlého ošetření edge cases a synonymických výrazů. Na základě těchto experimentů jsem se rozhodl pro pragmatičtější řešení s předdefinovanými analytickými pohledy v `query_config.py`, které nabízí optimální rovnováhu mezi flexibilitou a spolehlivostí.
 
@@ -301,5 +301,6 @@ Během vývoje tohoto projektu jsem řešil několik zajímavých technických v
 - **Vždy spouštěj skripty z kořenového adresáře projektu** kvůli správnému fungování importů.
 - **Pro pokročilou analytiku lze v budoucnu přidat sekci s detailními metrikami a vizualizacemi.**
 - **Pro detekci anomálií doporučuji vylepšit kombinaci ML a business pravidel, případně využít zpětnou vazbu uživatelů pro zpřesnění modelu v reálném prostředí.**
+- **Výměna ChromaDB za FAISS** - Odstranění závislosti na SQLite, která způsobovala problémy na Streamlit Cloud a použití in-memory vektorového úložiště FAISS pro efektivnější práci s embeddingy.
 
 
