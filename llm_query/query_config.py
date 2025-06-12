@@ -304,29 +304,26 @@ QUERY_CONFIG = {
             ),
             # Analýza se generuje dynamicky podle volby
             st.subheader("Analýza"),
-            # Použití lokální proměnné
-            (lambda: (
-                current_api_key := API_KEY_FROM_UI or OPENAI_API_KEY,
-                (st.write(
-                    OpenAI(api_key=current_api_key).chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[{
-                            "role": "user",
-                            "content": f"""
-                                Analyzuj distribuci splatností faktur pro {typ.lower()}:
-                                {filtered_data[['delay_bucket', 'count_formatted', 'percentage_formatted', 'avg_delay_formatted']].to_markdown(index=False)}
-                                
-                                Výstup formátuj jako:
-                                1. Shrnutí platební morálky pro {typ.lower()}
-                                2. Riziková období
-                                3. Doporučení pro zlepšení
-                            """
-                        }],
-                        temperature=0,
-                        max_tokens=500
-                    ).choices[0].message.content
-                ) if current_api_key else st.warning("⚠️ Pro generování analýzy je potřeba zadat OpenAI API klíč."))
-            ))()
+            # Jednodušší přístup bez vnořené lambda
+            (st.write(
+                OpenAI(api_key=API_KEY_FROM_UI or OPENAI_API_KEY).chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{
+                        "role": "user",
+                        "content": f"""
+                            Analyzuj distribuci splatností faktur pro {typ.lower()}:
+                            {filtered_data[['delay_bucket', 'count_formatted', 'percentage_formatted', 'avg_delay_formatted']].to_markdown(index=False)}
+                            
+                            Výstup formátuj jako:
+                            1. Shrnutí platební morálky pro {typ.lower()}
+                            2. Riziková období
+                            3. Doporučení pro zlepšení
+                        """
+                    }],
+                    temperature=0,
+                    max_tokens=500
+                ).choices[0].message.content
+            ) if (API_KEY_FROM_UI or OPENAI_API_KEY) else st.warning("⚠️ Pro generování analýzy je potřeba zadat OpenAI API klíč."))
         )
     },
     "anomaly_analysis": {
