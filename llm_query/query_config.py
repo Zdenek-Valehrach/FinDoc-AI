@@ -7,6 +7,9 @@ from pathlib import Path
 import sys
 import os
 
+# Na začátek souboru (hned po importech)
+API_KEY_FROM_UI = None  # Globální proměnná pro předání API klíče z UI
+
 # Nastavení cest
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
@@ -303,7 +306,7 @@ QUERY_CONFIG = {
             st.subheader("Analýza"),
             # Použití lokální proměnné
             (lambda: (
-                current_api_key := OPENAI_API_KEY,
+                current_api_key := API_KEY_FROM_UI or OPENAI_API_KEY,
                 (st.write(
                     OpenAI(api_key=current_api_key).chat.completions.create(
                         model="gpt-3.5-turbo",
@@ -405,6 +408,10 @@ def process_query(query_key: str, df: pd.DataFrame, api_key=None, typ: str = Non
             "data": formatted_data,
             "analysis": "⚠️ Pro generování analýzy je potřeba zadat OpenAI API klíč."
         }
+    
+    # Předání API klíče do globální proměnné pro použití v rendererech
+    global API_KEY_FROM_UI
+    API_KEY_FROM_UI = api_key
     
     # Vytvoření klienta s aktuálním API klíčem
     current_client = OpenAI(api_key=current_api_key)
