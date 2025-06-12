@@ -17,16 +17,19 @@ def preprocess_data(df):
     df[categorical_columns] = df[categorical_columns].astype("category")
         
     # 2. Průměrná hodnota položky
-    # Explicitní konverze číselných sloupců
-    numeric_cols = ["total_amount", "items_count"]
+    # Explicitní konverze všech číselných sloupců
+    numeric_cols = ["total_amount", "items_count", "is_month_end"]
     for col in numeric_cols:
-        df.loc[:, col] = pd.to_numeric(df[col], errors="coerce")
+        if col in df.columns:  # Kontrola, zda sloupec existuje
+            df[col] = pd.to_numeric(df[col], errors="coerce")
     
     # Odstranění neplatných záznamů
-    df = df.dropna(subset=numeric_cols)
+    df = df.dropna(subset=["total_amount", "items_count"])
+    
+    # Výpočet průměrné hodnoty položky
     df["avg_item_value"] = (df["total_amount"] / df["items_count"].astype(float)).round(2)
     
-    # 3. Kategorizace dodavatelů a odběratelů
+    # 3. Kategorizace dodavatelů a odběratelů (zůstává stejné)
     supplier_frequency = df["supplier_name"].value_counts()
     customer_frequency = df["customer_name"].value_counts()
 
@@ -36,7 +39,7 @@ def preprocess_data(df):
     def categorize_supplier(supplier_name):
         if supplier_name == "FinDoc AI":
             return "Special"
-        elif supplier_frequency[supplier_name] > supplier_treshold:
+        elif supplier_name in supplier_frequency and supplier_frequency[supplier_name] > supplier_treshold:
             return "Top Supplier"
         else:
             return "Active Supplier"
@@ -44,7 +47,7 @@ def preprocess_data(df):
     def categorize_customer(customer_name):
         if customer_name == "FinDoc AI":
             return "Special"
-        elif customer_frequency[customer_name] > customer_treshold:
+        elif customer_name in customer_frequency and customer_frequency[customer_name] > customer_treshold:
             return "Top Customer"
         else:
             return "Active Customer"
@@ -70,10 +73,21 @@ def preprocess_data(df):
     # 6. Label Encoding
     ENCODERS_PATH = os.path.join(os.path.dirname(__file__), "label_encoders.pkl")
     label_encoders = joblib.load(ENCODERS_PATH)
-    for col, le in label_encoders.items():
-        df[col + "_encoded"] = le.transform(df[col])
-
     
+    for col, le in label_encoders.items():
+        if col in df.columns:  # Ověřit, že sloupec existuje
+            # Pokud je některá hodnota neznámá pro encoder, nahraď ji nejčastější hodnotou
+            unique_values = df[col].unique()
+            encoder_classes = le.classes_
+            
+            for value in unique_values:
+                if value not in encoder_classes:
+                    # Nahraď nejčastější hodnotou ve sloupci
+                    most_common = df[col].value_counts().index[0]
+                    df.loc[df[col] == value, col] = most_common
+            
+            df[col + "_encoded"] = le.transform(df[col])
+
     # 7. Finální výběr příznaků
     features = ['total_amount', 'is_month_end', 'items_count', 'avg_item_value',
        'days_to_due', 'customer_mean', 'customer_std', 'supplier_mean',
@@ -81,10 +95,30 @@ def preprocess_data(df):
        'category_encoded', 'transaction_type_encoded', 'note_encoded',
        'supplier_category_encoded', 'customer_category_encoded']
     
+    # Kontrola a oprava chybějících hodnot
+    for feature in features:
+        if feature in df.columns:
+            # Nahradit NaN hodnoty nulami
+            df[feature] = df[feature].fillna(0)
+            # Zajistit číselný typ
+            df[feature] = pd.to_numeric(df[feature], errors='coerce').fillna(0)
+        else:
+            print(f"VAROVÁNÍ: Sloupec {feature} chybí v datasetu!")
+            # Vytvořit chybějící sloupec s nulami
+            df[feature] = 0
+    
     # 8. Scaling 
     SCALER_PATH = os.path.join(os.path.dirname(__file__), "scaler.pkl")
     scaler = joblib.load(SCALER_PATH)
-    X_scaled = scaler.transform(df[features])
+    
+    # Kontrola formátu dat před transformací
+    print(f"Kontrola typů dat před transformací: {df[features].dtypes}")
+    
+    # Převést všechny hodnoty na float64 pro jistotu
+    df_features = df[features].astype(float)
+    
+    # Nyní transformovat
+    X_scaled = scaler.transform(df_features)
     
     return pd.DataFrame(X_scaled, columns=features)
 
