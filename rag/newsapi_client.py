@@ -35,35 +35,19 @@ class TechNewsRAG:
         self._refresh_data()
 
     def _init_chroma(self):
-        """Inicializuje ChromaDB klienta a kolekci"""
-        self.admin_client = chromadb.AdminClient(
-            Settings(persist_directory="chroma_storage", anonymized_telemetry=False)
-        )
-        self._init_tenant()
+        """Inicializuje ChromaDB klienta a kolekci v paměti"""
+        # Použití in-memory klienta místo persistentního
+        self.client = chromadb.Client()
         
-        self.client = chromadb.PersistentClient(
-            path="chroma_storage",
-            settings=Settings(persist_directory="chroma_storage", anonymized_telemetry=False),
-            tenant="default_tenant",
-            database="default_database"
-        )
-        
+        # Vytvoření kolekce s embedding funkcí
         self.collection = self.client.get_or_create_collection(
             name="tech_news_global",
             embedding_function=chromadb.utils.embedding_functions.OpenAIEmbeddingFunction(
-                api_key=self.openai_api_key,  # Použij předaný klíč
+                api_key=self.openai_api_key,
                 model_name="text-embedding-3-small"
             ),
             metadata={"hnsw:M": 16, "hnsw:construction_ef": 100, "hnsw:space": "cosine"}
         )
-
-    def _init_tenant(self):
-        """Vytvoří tenant a databázi pro Chroma"""
-        try:
-            self.admin_client.create_tenant("default_tenant")
-            self.admin_client.create_database("default_database", "default_tenant")
-        except Exception:
-            pass
 
     def _init_models(self):
         """Inicializuje LLM a embedding modely"""
@@ -72,7 +56,6 @@ class TechNewsRAG:
 
     def _refresh_data(self):
         """Aktualizuje data z obou zdrojů"""
-        self.collection.delete(where={"source": {"$ne": ""}})
         
         # Načtení českých i zahraničních článků
         docs_cz = self.fetch_news(language="cs", query="technologie OR AI OR umělá inteligence")
@@ -189,4 +172,4 @@ class TechNewsRAG:
         """Detekuje nízkou relevanci výsledků"""
         return (not results.get('distances') or 
                 (max(results['distances'][0]) < threshold if results['distances'][0] else True))
-    
+
