@@ -18,16 +18,21 @@ import os
 # Nastavení cest
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
-import config
 
-# Kombinace zdrojů pro API klíče
-NEWSAPI_KEY = os.getenv("NEWSAPI_KEY") or getattr(config, "NEWSAPI_KEY", None)
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or getattr(config, "OPENAI_API_KEY", None)
+# Volitelný import config.py s ošetřením chybějícího souboru
+try:
+    import config
+except ImportError:
+    config = None  
 
-if not NEWSAPI_KEY:
-    raise ValueError("❌ NEWSAPI_KEY není nastaven. Nastavte ho v config.py nebo v aplikaci.")
+# Kombinace zdrojů pro API klíč
+OPENAI_API_KEY = (
+    os.getenv("OPENAI_API_KEY") or  
+    (getattr(config, "OPENAI_API_KEY", None) if config else None)  
+)
+
 if not OPENAI_API_KEY:
-    raise ValueError("❌ OPENAI_API_KEY není nastaven. Nastavte ho v config.py nebo v aplikaci.")
+    raise ValueError("❌ OPENAI_API_KEY není nastaven. Nastavte ho v Secrets nebo config.py.")
 
 
 class TechNewsRAG:
@@ -170,7 +175,7 @@ class TechNewsRAG:
         """Generuje univerzální odpověď"""
         prompt_template = """
         Jsi expert na technologické novinky. Vypracuj souhrn na základě následujícího kontextu, 
-        který obsahuje články v češtině i angličtině. Odpověď poskytni v jazyce původního dotazu.
+        který obsahuje články v češtině i angličtině. Odpověď poskytni v jazyce dotazu.
 
         Dotaz: {question}
 

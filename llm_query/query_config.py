@@ -10,13 +10,21 @@ import os
 # Nastavení cest
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
-import config
+
+# Volitelný import config.py s ošetřením chybějícího souboru
+try:
+    import config
+except ImportError:
+    config = None  
 
 # Kombinace zdrojů pro API klíč
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or getattr(config, "OPENAI_API_KEY", None)
+OPENAI_API_KEY = (
+    os.getenv("OPENAI_API_KEY") or  
+    (getattr(config, "OPENAI_API_KEY", None) if config else None) 
+)
 
 if not OPENAI_API_KEY:
-    raise ValueError("❌ OPENAI_API_KEY není nastaven. Nastavte ho v config.py nebo v aplikaci.")
+    raise ValueError("❌ OPENAI_API_KEY není nastaven. Nastavte ho v Secrets nebo config.py.")
 
 # Cesty k souborům
 project_root = Path(__file__).parent.parent
