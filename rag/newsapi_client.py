@@ -20,11 +20,6 @@ project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 import config
 
-try:
-    import config
-except ImportError:
-    config = None
-
 # Kombinace zdrojů pro API klíče
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY") or getattr(config, "NEWSAPI_KEY", None)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or getattr(config, "OPENAI_API_KEY", None)

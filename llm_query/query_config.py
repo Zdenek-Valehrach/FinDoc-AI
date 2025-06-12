@@ -12,12 +12,6 @@ project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 import config
 
-# Explicitní nastavení API klíče
-try:
-    import config
-except ImportError:
-    config = None
-
 # Kombinace zdrojů pro API klíč
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or getattr(config, "OPENAI_API_KEY", None)
 
