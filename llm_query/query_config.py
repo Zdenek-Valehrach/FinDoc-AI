@@ -11,20 +11,14 @@ import os
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
-# Volitelný import config.py s ošetřením chybějícího souboru
+# Volitelný import config.py
 try:
     import config
 except ImportError:
-    config = None  
+    config = None
 
-# Kombinace zdrojů pro API klíč
-OPENAI_API_KEY = (
-    os.getenv("OPENAI_API_KEY") or  
-    (getattr(config, "OPENAI_API_KEY", None) if config else None) 
-)
-
-if not OPENAI_API_KEY:
-    raise ValueError("❌ OPENAI_API_KEY není nastaven. Nastavte ho v Secrets nebo config.py.")
+# Získání API klíče z prostředí nebo config.py (bez vyvolání chyby)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or getattr(config, "OPENAI_API_KEY", None)
 
 # Cesty k souborům
 project_root = Path(__file__).parent.parent
@@ -128,8 +122,8 @@ QUERY_CONFIG = {
             {data[['customer_name', 'total_amount_formatted', 'podil_formatted']].to_markdown(index=False)}
             
             Číselné hodnoty pro výpočty:
-            - Celkové příjmy od těchto odběratelů: {data['total_amount'].sum():,.0f} Kč
-            - Průměrný podíl na příjmech: {data['podil'].mean():.1f} %
+            - Celkové výdaje těmto odběratelům: {data['total_amount'].sum():,.0f} Kč
+            - Průměrný podíl na výdajích: {data['podil'].mean():.1f} %
             
             Výstup formátuj jako:
             1. Shrnutí významu těchto odběratelů
@@ -274,14 +268,14 @@ QUERY_CONFIG = {
         """,
         "renderer": lambda data: (
             # Výběr typu faktury
-            (typ := st.radio(
+            typ := st.radio(
                 "Vyberte typ faktur:",
                 options=["Příjmy", "Výdaje"],
                 index=0,
                 horizontal=True
-            )),
+            ),
             # Filtrování dat podle typu
-            (filtered_data := data[data['transaction_type'] == typ]),
+            filtered_data := data[data['transaction_type'] == typ],
             # Graf
             st.plotly_chart(
                 px.pie(
@@ -307,25 +301,29 @@ QUERY_CONFIG = {
             ),
             # Analýza se generuje dynamicky podle volby
             st.subheader("Analýza"),
-            st.write(
-                client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{
-                        "role": "user",
-                        "content": f"""
-                            Analyzuj distribuci splatností faktur pro {typ.lower()}:
-                            {filtered_data[['delay_bucket', 'count_formatted', 'percentage_formatted', 'avg_delay_formatted']].to_markdown(index=False)}
-                            
-                            Výstup formátuj jako:
-                            1. Shrnutí platební morálky pro {typ.lower()}
-                            2. Riziková období
-                            3. Doporučení pro zlepšení
-                        """
-                    }],
-                    temperature=0,
-                    max_tokens=500
-                ).choices[0].message.content
-            )
+            # Použití lokální proměnné
+            (lambda: (
+                current_api_key := OPENAI_API_KEY,
+                (st.write(
+                    OpenAI(api_key=current_api_key).chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[{
+                            "role": "user",
+                            "content": f"""
+                                Analyzuj distribuci splatností faktur pro {typ.lower()}:
+                                {filtered_data[['delay_bucket', 'count_formatted', 'percentage_formatted', 'avg_delay_formatted']].to_markdown(index=False)}
+                                
+                                Výstup formátuj jako:
+                                1. Shrnutí platební morálky pro {typ.lower()}
+                                2. Riziková období
+                                3. Doporučení pro zlepšení
+                            """
+                        }],
+                        temperature=0,
+                        max_tokens=500
+                    ).choices[0].message.content
+                ) if current_api_key else st.warning("⚠️ Pro generování analýzy je potřeba zadat OpenAI API klíč."))
+            ))()
         )
     },
     "anomaly_analysis": {
@@ -381,7 +379,7 @@ QUERY_CONFIG = {
     }
 }
 
-def process_query(query_key: str, df: pd.DataFrame, typ: str = None) -> dict:
+def process_query(query_key: str, df: pd.DataFrame, api_key=None, typ: str = None) -> dict:
     config = QUERY_CONFIG[query_key]
     
     # 1. Zpracování dat
@@ -399,8 +397,20 @@ def process_query(query_key: str, df: pd.DataFrame, typ: str = None) -> dict:
     else:  # Pro ostatní dotazy
         prompt = config["prompt_func"](formatted_data)
     
-    # 3. Volání LLM
-    response = client.chat.completions.create(
+    # 3. Vytvoření klienta s aktuálním API klíčem
+    current_api_key = api_key or OPENAI_API_KEY
+    if not current_api_key:
+        return {
+            "question": config["question"],
+            "data": formatted_data,
+            "analysis": "⚠️ Pro generování analýzy je potřeba zadat OpenAI API klíč."
+        }
+    
+    # Vytvoření klienta s aktuálním API klíčem
+    current_client = OpenAI(api_key=current_api_key)
+    
+    # Volání API
+    response = current_client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
@@ -412,3 +422,4 @@ def process_query(query_key: str, df: pd.DataFrame, typ: str = None) -> dict:
         "data": formatted_data,
         "analysis": response.choices[0].message.content
     }
+

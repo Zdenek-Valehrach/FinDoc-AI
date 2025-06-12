@@ -19,27 +19,17 @@ import os
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
-# Volitelný import config.py s ošetřením chybějícího souboru
-try:
-    import config
-except ImportError:
-    config = None  
-
-# Kombinace zdrojů pro API klíč
-OPENAI_API_KEY = (
-    os.getenv("OPENAI_API_KEY") or  
-    (getattr(config, "OPENAI_API_KEY", None) if config else None)  
-)
-
-if not OPENAI_API_KEY:
-    raise ValueError("❌ OPENAI_API_KEY není nastaven. Nastavte ho v Secrets nebo config.py.")
-
-
 class TechNewsRAG:
-    """Univerzální třída pro česká i zahraniční technologická média"""
+    """Univerzální třída pro technologická média s flexibilními API klíči"""
     
-    def __init__(self):
-        self.newsapi_key = config.NEWSAPI_KEY
+    def __init__(self, newsapi_key: str, openai_api_key: str):
+        """
+        Parameters:
+        newsapi_key (str): API klíč pro NewsAPI (z UI/config.py)
+        openai_api_key (str): API klíč pro OpenAI (z UI/config.py)
+        """
+        self.newsapi_key = newsapi_key
+        self.openai_api_key = openai_api_key
         self._init_chroma()
         self._init_models()
         self._refresh_data()
@@ -61,7 +51,7 @@ class TechNewsRAG:
         self.collection = self.client.get_or_create_collection(
             name="tech_news_global",
             embedding_function=chromadb.utils.embedding_functions.OpenAIEmbeddingFunction(
-                api_key=config.OPENAI_API_KEY,
+                api_key=self.openai_api_key,  # Použij předaný klíč
                 model_name="text-embedding-3-small"
             ),
             metadata={"hnsw:M": 16, "hnsw:construction_ef": 100, "hnsw:space": "cosine"}
@@ -77,8 +67,8 @@ class TechNewsRAG:
 
     def _init_models(self):
         """Inicializuje LLM a embedding modely"""
-        self.embeddings = OpenAIEmbeddings(api_key=config.OPENAI_API_KEY)
-        self.llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.3, api_key=config.OPENAI_API_KEY)
+        self.embeddings = OpenAIEmbeddings(api_key=self.openai_api_key)
+        self.llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.3, api_key=self.openai_api_key)
 
     def _refresh_data(self):
         """Aktualizuje data z obou zdrojů"""

@@ -41,6 +41,14 @@ st.sidebar.markdown(
 )
 st.sidebar.markdown("---")
 
+try:
+    import config
+except ImportError:
+    config = None
+
+newsapi_key = news_key or (config.NEWSAPI_KEY if config else None)
+openai_api_key = openai_key or (config.OPENAI_API_KEY if config else None)
+
 def display_anomalies(df):
     """Zobrazí detekované anomálie s barevným zvýrazněním"""
     st.subheader("Detekované anomálie")
@@ -250,78 +258,85 @@ if page == "Načtení a zpracování PDF":
 
 
 elif page == "Analytika":
-    st.title("Analytické přehledy")
-    invoices_df = pd.read_csv(csv_path)
-    invoices_df['total_amount'] = invoices_df['total_amount'].round().astype(int)
-
-    # Výběr dotazu
-    query_options = [config["question"] for config in QUERY_CONFIG.values()]
-    selected_question = st.selectbox(
-        "Vyberte analytický dotaz:",
-        options=query_options,
-        index=0
-    )
-    selected_key = next(
-        key for key, config in QUERY_CONFIG.items()
-        if config["question"] == selected_question
-    )
-
-    # Zpracování dotazu
-    result = process_query(selected_key, invoices_df)
-
-    st.subheader(result["question"])
-
-    # Kontrola, jestli existuje renderer, a pokud ano, použij ho
-    config = QUERY_CONFIG[selected_key]
-    if "renderer" in config:
-        config["renderer"](result["data"])
+    if not openai_api_key:
+        st.warning("Pro Analytiku zadejte OpenAI API klíč v postranním panelu.")
     else:
-        # Fallback pro dotazy bez rendereru
-        with st.expander("Zobrazit data"):
-            st.dataframe(result["data"])
+        st.title("Analytické přehledy")
+        invoices_df = pd.read_csv(csv_path)
+        invoices_df['total_amount'] = invoices_df['total_amount'].round().astype(int)
 
-    # Zobrazení analýzy pouze pro dotazy, které ji negenerují ve svém rendereru
-    if selected_key != "payment_distribution":
-        st.subheader("Analýza")
-        st.write(result["analysis"])
+        # Výběr dotazu
+        query_options = [config["question"] for config in QUERY_CONFIG.values()]
+        selected_question = st.selectbox(
+            "Vyberte analytický dotaz:",
+            options=query_options,
+            index=0
+        )
+        selected_key = next(
+            key for key, config in QUERY_CONFIG.items()
+            if config["question"] == selected_question
+        )
+
+        # Zpracování dotazu
+        result = process_query(selected_key, invoices_df, openai_api_key)
+
+        st.subheader(result["question"])
+
+        # Kontrola, jestli existuje renderer, a pokud ano, použij ho
+        config = QUERY_CONFIG[selected_key]
+        if "renderer" in config:
+            config["renderer"](result["data"])
+        else:
+            # Fallback pro dotazy bez rendereru
+            with st.expander("Zobrazit data"):
+                st.dataframe(result["data"])
+
+        # Zobrazení analýzy pouze pro dotazy, které ji negenerují ve svém rendereru
+        if selected_key != "payment_distribution":
+            st.subheader("Analýza")
+            st.write(result["analysis"])
 
 elif page == "Tech Novinky":
-    st.title("🔍 Technologické novinky")
+    if not newsapi_key or not openai_api_key:
+        st.warning("Pro Tech Novinky zadejte oba API klíče v postranním panelu.")
+    else:
+        st.title("🔍 Technologické novinky")
 
-    # Inicializace RAG systému
-    try:
-        rag = TechNewsRAG()
-        st.success("✅ Systém úspěšně inicializován!")
-    except Exception as e:
-        st.error(f"❌ Chyba při inicializaci: {str(e)}")
-        st.stop()
+        # Inicializace RAG systému
+        try:
+            # Předání obou API klíčů při inicializaci
+            rag = TechNewsRAG(newsapi_key=newsapi_key, openai_api_key=openai_api_key)
+            st.success("✅ Systém úspěšně inicializován!")
+        except Exception as e:
+            st.error(f"❌ Chyba při inicializaci: {str(e)}")
+            st.stop()
 
-    # Hlavní funkcionalita
-    query = st.text_input("Zadejte dotaz v přirozeném jazyce:", "")
+        # Hlavní funkcionalita
+        query = st.text_input("Zadejte dotaz v přirozeném jazyce:", "")
 
-    if st.button("Souhrn"):
-        with st.spinner("🔍 Vyhledávám relevantní články a generuji odpověď..."):
-            try:
-                # Získání odpovědi a výsledků vyhledávání
-                answer, results = rag.query(query)
-                
-                st.markdown("---")
-                st.write("📝 Souhrn:")
-                st.markdown(answer)
-                
-                # Zobrazení zdrojových článků
-                st.markdown("---")
-                st.write("📰 Zdrojové články:")
-                
-                if results and len(results['documents']) > 0:
-                    for doc, meta in zip(results['documents'][0], results['metadatas'][0]):
-                        with st.expander(doc.split("\n")[0]):
-                            st.markdown(f"**Zdroj:** {meta['source']}")
-                            st.markdown(f"**Datum:** {meta['date']}")
-                            st.markdown(f"**URL:** {meta['url']}")
-                else:
-                    st.warning("Nebyly nalezeny žádné relevantní články.")
-                    
-            except Exception as e:
-                st.error(f"❌ Chyba při zpracování: {str(e)}")
+        if st.button("Souhrn"):
+            with st.spinner("🔍 Vyhledávám relevantní články a generuji odpověď..."):
+                try:
+                    # Získání odpovědi a výsledků vyhledávání
+                    answer, results = rag.query(query)
+                        
+                    st.markdown("---")
+                    st.write("📝 Souhrn:")
+                    st.markdown(answer)
+                        
+                    # Zobrazení zdrojových článků
+                    st.markdown("---")
+                    st.write("📰 Zdrojové články:")
+                        
+                    if results and len(results['documents']) > 0:
+                        for doc, meta in zip(results['documents'][0], results['metadatas'][0]):
+                            with st.expander(doc.split("\n")[0]):
+                                st.markdown(f"**Zdroj:** {meta['source']}")
+                                st.markdown(f"**Datum:** {meta['date']}")
+                                st.markdown(f"**URL:** {meta['url']}")
+                    else:
+                        st.warning("Nebyly nalezeny žádné relevantní články.")
+                            
+                except Exception as e:
+                    st.error(f"❌ Chyba při zpracování: {str(e)}")
 
