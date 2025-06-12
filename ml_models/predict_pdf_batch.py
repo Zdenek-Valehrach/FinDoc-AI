@@ -98,23 +98,39 @@ def batch_predict(input_csv, model_path, output_csv):
     """
     Načte data z CSV, provede preprocessing, načte model, provede predikci a uloží výsledek.
     """
-    # 1. Načtení dat
-    df = pd.read_csv(input_csv, parse_dates=["invoice_date", "due_date"])
+    try:
+        # 1. Načtení dat
+        df = pd.read_csv(input_csv, parse_dates=["invoice_date", "due_date"])
+        print(f"Data načtena, tvar: {df.shape}")
+        
+        # 2. Preprocessing
+        try:
+            X = preprocess_data(df)
+            print(f"Preprocessing dokončen, tvar: {X.shape}")
+            # Kontrola datových typů po preprocessingu
+            print("Datové typy po preprocessingu:")
+            print(X.dtypes)
+        except Exception as e:
+            print(f"Chyba při preprocessingu: {e}")
+            raise
+        
+        # 3. Načtení modelu
+        model = load_model(model_path)
+        
+        # 4. Predikce
+        y_pred, y_proba = predict_anomalies(model, X)
+        
+        # 5. Uložení výsledků
+        df['anomaly_type_pred'] = y_pred
+        df['anomaly_confidence'] = y_proba
+        df.to_csv(output_csv, index=False)
+        print(f"Výsledky uloženy do {output_csv}")
     
-    # 2. Preprocessing
-    X = preprocess_data(df)
-    
-    # 3. Načtení modelu
-    model = load_model(model_path)
-    
-    # 4. Predikce
-    y_pred, y_proba = predict_anomalies(model, X)
-    
-    # 5. Uložení výsledků
-    df['anomaly_type_pred'] = y_pred
-    df['anomaly_confidence'] = y_proba
-    df.to_csv(output_csv, index=False)
-    print(f"Výsledky uloženy do {output_csv}")
+    except Exception as e:
+        import traceback
+        print(f"Chyba při zpracování: {e}")
+        print(traceback.format_exc())
+        raise
 
 # Příklad volání:
 # if __name__ == "__main__":
