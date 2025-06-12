@@ -11,8 +11,8 @@ reportlab==4.4.0
 Faker==37.1.0
 Requests==2.32.4
 openai==1.85.0
-chromadb==0.6.3
 langchain_core==0.3.64
 langchain_openai==0.3.21
 langchain_community==0.3.24
 streamlit==1.45.0
+faiss-cpu==1.7.4

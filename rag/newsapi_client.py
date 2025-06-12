@@ -3,13 +3,11 @@ import requests
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from langchain_core.documents import Document
-from langchain_community.vectorstores import Chroma
+from langchain_community.vectorstores import FAISS  # Změna z Chroma na FAISS
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from chromadb.config import Settings
-import chromadb
 
 from pathlib import Path
 import sys
@@ -30,24 +28,11 @@ class TechNewsRAG:
         """
         self.newsapi_key = newsapi_key
         self.openai_api_key = openai_api_key
-        self._init_chroma()
         self._init_models()
+        self.vectorstore = None  # Bude inicializováno při _refresh_data
         self._refresh_data()
 
-    def _init_chroma(self):
-        """Inicializuje ChromaDB klienta a kolekci v paměti"""
-        # Použití in-memory klienta místo persistentního
-        self.client = chromadb.Client()
-        
-        # Vytvoření kolekce s embedding funkcí
-        self.collection = self.client.get_or_create_collection(
-            name="tech_news_global",
-            embedding_function=chromadb.utils.embedding_functions.OpenAIEmbeddingFunction(
-                api_key=self.openai_api_key,
-                model_name="text-embedding-3-small"
-            ),
-            metadata={"hnsw:M": 16, "hnsw:construction_ef": 100, "hnsw:space": "cosine"}
-        )
+    # Odstraněna metoda _init_chroma
 
     def _init_models(self):
         """Inicializuje LLM a embedding modely"""
@@ -61,15 +46,19 @@ class TechNewsRAG:
         docs_cz = self.fetch_news(language="cs", query="technologie OR AI OR umělá inteligence")
         docs_int = self.fetch_news(language="en", query="technology OR AI OR artificial intelligence")
         
-        if docs_cz + docs_int:
-            self.collection.upsert(
-                ids=[str(i) for i in range(len(docs_cz + docs_int))],
-                documents=[doc.page_content for doc in docs_cz + docs_int],
-                metadatas=[doc.metadata for doc in docs_cz + docs_int]
-            )
+        # Kombinace článků
+        combined_docs = docs_cz + docs_int
+        
+        if combined_docs:
+            # Vytvoření FAISS vektorového úložiště
+            self.vectorstore = FAISS.from_documents(combined_docs, self.embeddings)
+        else:
+            # Prázdné úložiště pro případ, že nejsou žádné články
+            self.vectorstore = FAISS.from_texts(["Žádné články nenalezeny"], self.embeddings)
 
     def fetch_news(self, language: str, query: str):
         """Získává články pro zadaný jazyk"""
+        # Tato metoda zůstává stejná
         domains = {
             "cs": "technet.idnes.cz,zive.cz,root.cz,lupa.cz,cnews.cz,cc.cz,chip.cz,itbiz.cz",
             "en": "techcrunch.com,theverge.com,wired.com,engadget.com,arstechnica.com"
@@ -93,6 +82,7 @@ class TechNewsRAG:
 
     def _process_articles(self, articles, language: str):
         """Zpracuje články s ohledem na jazyk"""
+        # Tato metoda zůstává stejná
         processed = []
         for art in articles:
             if not art.get('title') or not self._is_valid_source(art['url'], language):
@@ -111,6 +101,7 @@ class TechNewsRAG:
 
     def _is_valid_source(self, url: str, language: str):
         """Validuje domény podle jazyka"""
+        # Tato metoda zůstává stejná
         domains = {
             "cs": ["technet.idnes.cz", "zive.cz", "root.cz", "lupa.cz", "cnews.cz", "cc.cz", "chip.cz", "itbiz.cz"],
             "en": ["techcrunch.com", "theverge.com", "wired.com", "engadget.com", "arstechnica.com"]
@@ -123,29 +114,37 @@ class TechNewsRAG:
         """Zpracuje dotaz včetně obou jazykových verzí"""
         self._refresh_data()
         
-        if self.collection.count() == 0:
+        if not self.vectorstore:
             return "Nenalezeny žádné relevantní články v češtině ani angličtině.", []
 
-        results = self.collection.query(
-            query_texts=[user_input],
-            n_results=min(10, self.collection.count()),
-            include=["documents", "metadatas", "distances"]
-        )
+        # Získání relevantních dokumentů pomocí similarity_search
+        relevant_docs = self.vectorstore.similarity_search(user_input, k=10)
         
-        context = self._build_context(results)
+        if not relevant_docs:
+            return "Nenalezeny žádné relevantní články v češtině ani angličtině.", []
+        
+        context = self._build_context(relevant_docs)
         answer = self._generate_answer(user_input, context)
+        
+        # Formátování výsledků pro zobrazení
+        results = {
+            "documents": [[doc.page_content for doc in relevant_docs]],
+            "metadatas": [[doc.metadata for doc in relevant_docs]],
+            "distances": [[0.0] * len(relevant_docs)]  # FAISS neposkytuje přímo vzdálenosti jako ChromaDB
+        }
         
         return answer, results
 
-    def _build_context(self, results):
-        """Vytvoří multijazyčný kontext"""
+    def _build_context(self, docs):
+        """Vytvoří multijazyčný kontext z dokumentů"""
         return "\n\n".join([
-            f"Jazyk: {meta['language']}\nČlánek: {doc}\nZdroj: {meta['source']}\nURL: {meta['url']}"
-            for doc, meta in zip(results['documents'][0], results['metadatas'][0])
+            f"Jazyk: {doc.metadata['language']}\nČlánek: {doc.page_content}\nZdroj: {doc.metadata['source']}\nURL: {doc.metadata['url']}"
+            for doc in docs
         ])
 
     def _generate_answer(self, query: str, context: str):
         """Generuje univerzální odpověď"""
+        # Tato metoda zůstává stejná
         prompt_template = """
         Jsi expert na technologické novinky. Vypracuj souhrn na základě následujícího kontextu, 
         který obsahuje články v češtině i angličtině. Odpověď poskytni v jazyce dotazu.
@@ -167,9 +166,4 @@ class TechNewsRAG:
             | StrOutputParser()
         )
         return chain.invoke({"question": query, "context": context})
-
-    def _is_low_confidence(self, results, threshold=0.3):
-        """Detekuje nízkou relevanci výsledků"""
-        return (not results.get('distances') or 
-                (max(results['distances'][0]) < threshold if results['distances'][0] else True))
 
