@@ -7,7 +7,6 @@ from pathlib import Path
 import sys
 import os
 
-# Na začátek souboru (hned po importech)
 API_KEY_FROM_UI = None  # Globální proměnná pro předání API klíče z UI
 
 # Nastavení cest
@@ -304,7 +303,6 @@ QUERY_CONFIG = {
             ),
             # Analýza se generuje dynamicky podle volby
             st.subheader("Analýza"),
-            # Jednodušší přístup bez vnořené lambda
             (st.write(
                 OpenAI(api_key=API_KEY_FROM_UI or OPENAI_API_KEY).chat.completions.create(
                     model="gpt-3.5-turbo",

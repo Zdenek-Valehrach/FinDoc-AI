@@ -75,7 +75,7 @@ def preprocess_data(df):
     label_encoders = joblib.load(ENCODERS_PATH)
     
     for col, le in label_encoders.items():
-        if col in df.columns:  # Ověřit, že sloupec existuje
+        if col in df.columns:  
             # Pokud je některá hodnota neznámá pro encoder, nahraď ji nejčastější hodnotou
             unique_values = df[col].unique()
             encoder_classes = le.classes_
@@ -114,10 +114,9 @@ def preprocess_data(df):
     # Kontrola formátu dat před transformací
     print(f"Kontrola typů dat před transformací: {df[features].dtypes}")
     
-    # Převést všechny hodnoty na float64 pro jistotu
+    # Převedení všech hodnot na float64 pro jistotu
     df_features = df[features].astype(float)
     
-    # Nyní transformovat
     X_scaled = scaler.transform(df_features)
     
     return pd.DataFrame(X_scaled, columns=features)
@@ -135,7 +134,7 @@ def batch_predict(input_csv, model_path, output_csv):
     try:
         # 1. Načtení dat
         df = pd.read_csv(input_csv, parse_dates=["invoice_date", "due_date"])
-        print(f"Data načtena, tvar: {df.shape}")
+        # print(f"Data načtena, tvar: {df.shape}")
         
         # 2. Preprocessing
         try:

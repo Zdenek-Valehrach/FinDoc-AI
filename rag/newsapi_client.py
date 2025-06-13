@@ -3,7 +3,7 @@ import requests
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from langchain_core.documents import Document
-from langchain_community.vectorstores import FAISS  # Změna z Chroma na FAISS
+from langchain_community.vectorstores import FAISS  
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
@@ -32,8 +32,6 @@ class TechNewsRAG:
         self.vectorstore = None  # Bude inicializováno při _refresh_data
         self._refresh_data()
 
-    # Odstraněna metoda _init_chroma
-
     def _init_models(self):
         """Inicializuje LLM a embedding modely"""
         self.embeddings = OpenAIEmbeddings(api_key=self.openai_api_key)
@@ -58,7 +56,6 @@ class TechNewsRAG:
 
     def fetch_news(self, language: str, query: str):
         """Získává články pro zadaný jazyk"""
-        # Tato metoda zůstává stejná
         domains = {
             "cs": "technet.idnes.cz,zive.cz,root.cz,lupa.cz,cnews.cz,cc.cz,chip.cz,itbiz.cz",
             "en": "techcrunch.com,theverge.com,wired.com,engadget.com,arstechnica.com"
@@ -82,7 +79,6 @@ class TechNewsRAG:
 
     def _process_articles(self, articles, language: str):
         """Zpracuje články s ohledem na jazyk"""
-        # Tato metoda zůstává stejná
         processed = []
         for art in articles:
             if not art.get('title') or not self._is_valid_source(art['url'], language):
@@ -101,7 +97,6 @@ class TechNewsRAG:
 
     def _is_valid_source(self, url: str, language: str):
         """Validuje domény podle jazyka"""
-        # Tato metoda zůstává stejná
         domains = {
             "cs": ["technet.idnes.cz", "zive.cz", "root.cz", "lupa.cz", "cnews.cz", "cc.cz", "chip.cz", "itbiz.cz"],
             "en": ["techcrunch.com", "theverge.com", "wired.com", "engadget.com", "arstechnica.com"]
@@ -130,7 +125,7 @@ class TechNewsRAG:
         results = {
             "documents": [[doc.page_content for doc in relevant_docs]],
             "metadatas": [[doc.metadata for doc in relevant_docs]],
-            "distances": [[0.0] * len(relevant_docs)]  # FAISS neposkytuje přímo vzdálenosti jako ChromaDB
+            "distances": [[0.0] * len(relevant_docs)]  
         }
         
         return answer, results
@@ -144,7 +139,6 @@ class TechNewsRAG:
 
     def _generate_answer(self, query: str, context: str):
         """Generuje univerzální odpověď"""
-        # Tato metoda zůstává stejná
         prompt_template = """
         Jsi expert na technologické novinky. Vypracuj souhrn na základě následujícího kontextu, 
         který obsahuje články v češtině i angličtině. Odpověď poskytni v jazyce dotazu.

@@ -4,7 +4,7 @@ Tento projekt představuje end-to-end řešení pro zpracování fakturačních 
 
 ## O projektu
 
-FinDoc AI demonstruje kompletní workflow při práci s fakturačními daty. Projekt je zaměřený na simulaci podnikového prostředí, nikoliv na práci s reálnými daty – veškerá data jsou syntetická a slouží výhradně k prezentaci a testování konceptů. Data pokrývají období roku 2024, zahrnující simulované vzory výdajů a příjmů v různých kategoriích (IT, Energie, Mzdy, Doprava, Služby). Při generování jsem implementoval různé vlivy typické pro reálné prostředí - včetně sezónnosti, volatility částek a cíleně vložených anomálií (cca 9% faktur).
+FinDoc AI demonstruje kompletní workflow při práci s fakturačními daty. Projekt je zaměřený na simulaci podnikového prostředí, nikoliv na práci s reálnými daty – veškerá data jsou syntetická a slouží výhradně k prezentaci a testování konceptů. Data pokrývají období roku 2024, zahrnující simulované vzory výdajů a příjmů v různých kategoriích (IT, Energie, Mzdy, Doprava, Služby) a cíleně vložených anomálií (cca 9% faktur).
 
 Jakákoliv podobnost s reálnými firmami v syntetických datech je čistě náhodná. Systém je navržen jako praktická ukázka moderních data science a AI workflow ve finančním kontextu.
 
@@ -276,7 +276,7 @@ Při vývoji tohoto projektu jsem aktivně využíval generativní AI nástroje 
 
 Jsem přesvědčen, že v moderním vývojářském prostředí je efektivní využití AI nástrojů důležitou dovedností. Mým cílem nebylo pouze získat funkční kód, ale především:
 
-1. **Porozumět každé části implementace** - Veškerý kód generovaný AI jsem analyzoval, upravoval a integroval s pochopením jeho funkce
+1. **Porozumět každé části implementace** - Veškerý kód generovaný AI jsem analyzoval, upravoval a integroval se snahou plného pochopení jeho funkce
 2. **Kriticky hodnotit navrhovaná řešení** - Ne všechny návrhy AI jsou optimální, proto jsem aktivně vyhodnocoval a často upravoval navržené postupy
 3. **Překonávat omezení AI** - Řešil jsem problémy s kontextovým omezením, nekonzistencí a neúplnými implementacemi
 4. **Učit se z interakce** - Využil jsem možnost diskutovat o různých implementačních možnostech a tím rozšířit své znalosti
